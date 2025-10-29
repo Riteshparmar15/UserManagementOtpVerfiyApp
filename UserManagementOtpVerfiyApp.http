@@ -1,0 +1,6 @@
+@UserManagementOtpVerfiyApp_HostAddress = http://localhost:5215
+
+GET {{UserManagementOtpVerfiyApp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
