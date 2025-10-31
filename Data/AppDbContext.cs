@@ -9,5 +9,9 @@ namespace UserManagementOtpVerfiyApp.Data
         {
         }
         public DbSet<User> Users { get; set; } = null!;
+
+        public  DbSet<UserGoogleEmail> GoogleEmails { get; set; }
+
+        public DbSet<EmailOtp> EmailOtps { get; set; }
     }
 }

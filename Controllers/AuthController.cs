@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using UserManagementOtpVerfiyApp.Data;
 using UserManagementOtpVerfiyApp.Dtos;
 using UserManagementOtpVerfiyApp.Models;
 using UserManagementOtpVerfiyApp.Repositories;
@@ -15,16 +16,89 @@ namespace UserManagementOtpVerfiyApp.Controllers
         private readonly IUserRepository _repo;
         private readonly IJwtService _jwtService;
         private readonly IOtpService _otpService;
+        public readonly IEmailOtpServices _emailOtpServices;
         private readonly ILogger<AuthController> _logger;
+        private readonly AppDbContext _db;
 
-        public AuthController(IUserRepository repo, IOtpService otpService, IJwtService jwtService, IConfiguration config, ILogger<AuthController> logger)
+        public AuthController(IUserRepository repo, IOtpService otpService, IJwtService jwtService, IConfiguration config, ILogger<AuthController> logger, AppDbContext db, IEmailOtpServices emailOtpServices)
         {
             _repo = repo;
             _otpService = otpService;
             _jwtService = jwtService;
             _config = config;
             _logger = logger;
+            _db = db;
+            _emailOtpServices = emailOtpServices;
         }
+
+
+        // Email registration
+        // Register user with Email for google OAuth
+        [HttpPost("Google/register")]
+        public async Task<IActionResult> EmailRegisterGoogle([FromBody] RegisterRequest request)
+        {
+            if (request.Email == null || request.Password == null)
+            {
+                return BadRequest("Email and Password are required.");
+            }
+            else
+            {
+                var existingEmail = await _db.GoogleEmails.AnyAsync(x => x.Email == request.Email);
+                if (existingEmail)
+                {
+                    return BadRequest("Email already registered.");
+                }
+
+                var googleEmail = new UserGoogleEmail
+                {
+                    Email = request.Email,
+                    PasswordHash = request.Password // In production, hash the password before storing
+                };
+
+                _db.GoogleEmails.Add(googleEmail);
+                await _db.SaveChangesAsync();
+                return Ok(new { Message = "Email registered successfully for Google OAuth." });
+            }
+        }
+
+
+        [HttpPost("Google/Login")]
+        public async Task<IActionResult> LoginGoogleEmail([FromBody] LoginRequest request)
+        {
+            if (request.Email == null || request.Password == null)
+            {
+                return BadRequest("Email and Password are required.");
+            }
+            else
+            {
+                var user = await _db.GoogleEmails.FirstOrDefaultAsync(u => u.Email == request.Email);
+                if (user == null || user.PasswordHash != request.Password)
+                    return Unauthorized(new { message = "Invalid email or password" });
+
+                await _emailOtpServices.SendOtpAsync(user.Email);
+                return Ok(new { message = "OTP sent to your email" });
+            }
+        }
+
+
+        [HttpPost("Google/verify-otp")]
+        public async Task<IActionResult> GoogleOtpVerify([FromBody] VerifyOtpRequest request)
+        {
+            var result = await _emailOtpServices.VerifyOtpAsync(request.Email, request.Otp);
+
+            if (!result)
+                return BadRequest(new { message = "Invalid OTP or OTP has expired" });
+
+            return Ok(new { message = "OTP verified successfully" });
+        }
+
+
+        /// <summary>
+        /// ////////////
+        /// </summary>
+        /// <param name="dto"></param>
+        /// <returns></returns>
+
 
         [HttpPost("Auth/register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
@@ -131,6 +205,9 @@ namespace UserManagementOtpVerfiyApp.Controllers
 
             return Ok(new { Message = "OTP verified successfully.", Token = token, ExpiresAt = expiresAt });
         }
+
+
+
 
     }
 }
