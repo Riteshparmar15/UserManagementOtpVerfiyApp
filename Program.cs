@@ -22,7 +22,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
+<<<<<<< HEAD
 
+=======
+builder.Services.AddScoped<IEmailOtpServices, EmailOtpServices>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+>>>>>>> main
 
 // SMS Sender Service choose debug  or twilio depending on configuration
 var smsProvider = config["Sms:Provider"] ?? "Debug";
